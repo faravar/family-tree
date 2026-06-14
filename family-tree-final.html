@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>شجره‌نامه میرربیعی</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f5f4f1;
+  --surface:#ffffff;
+  --border:#e0dbd4;
+  --text:#1e1c19;
+  --muted:#8a8580;
+  --alive:#3d7a56;
+  --alive-bg:#edf6f1;
+  --dead:#9b4444;
+  --dead-bg:#fdf0f0;
+  --accent:#3a5a3e;
+  --node-border-r:10px;
+  --shadow:0 2px 10px rgba(0,0,0,.07);
+  --shadow-lg:0 8px 32px rgba(0,0,0,.12);
+}
+body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ── TOP BAR ── */
+.topbar{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;height:52px;gap:10px;
+  direction:rtl;
+}
+.topbar-title{font-size:.9rem;font-weight:600;letter-spacing:.01em;white-space:nowrap}
+.topbar-right{display:flex;align-items:center;gap:10px;direction:rtl;}
+.topbar-search{flex:1;max-width:260px;}
+
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 16px;border-radius:7px;border:none;
+  font-family:'Vazirmatn',sans-serif;font-size:.8rem;font-weight:500;
+  cursor:pointer;transition:all .18s;
+}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2d4730}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:5px 12px;font-size:.75rem}
+.btn-icon{padding:7px;border-radius:6px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;transition:all .18s}
+.btn-icon:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── MAIN CANVAS ── */
+.canvas-wrap{
+  position:fixed;top:52px;left:0;right:0;bottom:28px;
+  overflow:auto;
+  background:var(--bg);
+  background-image:radial-gradient(circle,#ccc8c0 1px,transparent 1px);
+  background-size:28px 28px;
+}
+#treeCanvas{position:relative;min-width:100%;min-height:100%}
+
+/* ── EMPTY STATE ── */
+.empty-state{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;
+}
+.empty-state .es-icon{font-size:3rem;margin-bottom:12px;opacity:.25}
+.empty-state p{font-size:.85rem;color:var(--muted)}
+.empty-state strong{display:block;font-size:1rem;color:var(--text);font-weight:500;margin-bottom:4px;opacity:.5}
+
+/* ── NODES ── */
+.node{
+  position:absolute;
+  cursor:pointer;
+  transition:transform .18s,box-shadow .18s;
+  z-index:10;
+}
+.node:hover{transform:scale(1.05);z-index:20}
+.node-inner{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;text-align:center;padding:8px 12px;
+  border:1.5px solid transparent;
+  box-shadow:var(--shadow);
+  background:var(--surface);
+  transition:box-shadow .18s;
+  position:relative;
+  overflow:hidden;
+}
+.node-inner::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+}
+.node:hover .node-inner{box-shadow:var(--shadow-lg)}
+
+/* circle shape */
+.shape-circle .node-inner{border-radius:50%}
+/* rect shape */
+.shape-rect .node-inner{border-radius:var(--node-border-r)}
+
+/* alive/dead tint */
+.node-alive .node-inner{border-color:rgba(61,122,86,.25);background:#fafffe}
+.node-alive .node-inner::before{background:var(--alive)}
+.node-dead .node-inner{border-color:rgba(155,68,68,.2);background:#fffafa}
+.node-dead .node-inner::before{background:var(--dead)}
+.node-unknown .node-inner{border-color:var(--border)}
+.node-unknown .node-inner::before{background:var(--border)}
+
+.node-name{font-size:.75rem;font-weight:600;line-height:1.2;color:var(--text)}
+.node-sub{font-size:.6rem;color:var(--muted);line-height:1.3}
+.node-spouse{font-size:.56rem;color:#a89cc8;line-height:1.2}
+
+/* ── SVG CONNECTORS ── */
+#connSvg{
+  position:absolute;top:0;left:0;
+  pointer-events:none;overflow:visible;
+  z-index:5;
+}
+.conn-line{stroke:#c8c0b6;stroke-width:1.5;fill:none;stroke-linecap:square}
+.conn-line-mother{stroke:#d8a9c0;stroke-width:1.5;fill:none;stroke-linecap:square}
+
+/* ── TOOLTIP ── */
+.tooltip{
+  position:fixed;z-index:500;
+  background:var(--text);color:#fff;
+  border-radius:9px;padding:12px 16px;
+  font-size:.78rem;line-height:1.65;
+  max-width:210px;pointer-events:none;
+  opacity:0;transition:opacity .15s;
+  box-shadow:var(--shadow-lg);
+  direction:rtl;text-align:right;
+}
+.tooltip.show{opacity:1}
+.tt-name{font-weight:700;font-size:.88rem;margin-bottom:6px}
+.tt-row{display:flex;gap:8px;align-items:baseline}
+.tt-label{color:rgba(255,255,255,.45);font-size:.68rem;flex-shrink:0}
+.tt-status{
+  display:inline-block;padding:2px 8px;border-radius:20px;
+  font-size:.68rem;font-weight:500;margin-top:4px;
+}
+.tt-alive{background:rgba(61,122,86,.25);color:#6fcf97}
+.tt-dead{background:rgba(155,68,68,.25);color:#f2a0a0}
+
+/* ── PEOPLE LIST PANEL ── */
+.side-panel{
+  position:fixed;top:52px;right:0;bottom:0;width:280px;
+  background:var(--surface);border-left:1px solid var(--border);
+  z-index:150;display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform .25s;
+}
+.side-panel.open{transform:none}
+.side-header{
+  padding:16px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.side-header h3{font-size:.85rem;font-weight:600}
+.side-list{flex:1;overflow-y:auto;padding:10px}
+.side-item{
+  padding:10px 12px;border-radius:7px;margin-bottom:4px;
+  cursor:pointer;transition:background .15s;
+  display:flex;align-items:center;gap:10px;
+}
+.side-item:hover{background:var(--bg)}
+.side-item-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.side-item-info{flex:1;min-width:0}
+.side-item-name{font-size:.8rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-item-sub{font-size:.68rem;color:var(--muted)}
+.side-item-del{
+  opacity:0;background:none;border:none;color:#c0392b;cursor:pointer;
+  font-size:1rem;padding:2px 4px;border-radius:4px;transition:opacity .15s;
+}
+.side-item:hover .side-item-del{opacity:1}
+.side-empty{padding:24px;text-align:center;font-size:.8rem;color:var(--muted)}
+
+/* ── MODAL ── */
+.overlay{
+  position:fixed;inset:0;background:rgba(30,28,25,.4);
+  z-index:300;display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--surface);border-radius:14px;
+  width:min(420px,92vw);
+  box-shadow:var(--shadow-lg);
+  transform:translateY(10px);transition:transform .2s;
+  direction:rtl;
+}
+.overlay.open .modal{transform:none}
+.modal-header{
+  padding:18px 20px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.modal-header h2{font-size:.95rem;font-weight:600}
+.modal-close{
+  background:none;border:none;font-size:1.2rem;
+  cursor:pointer;color:var(--muted);padding:2px 6px;border-radius:4px;
+}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:18px 20px}
+.form-row{margin-bottom:14px}
+.form-row label{display:block;font-size:.73rem;font-weight:500;color:var(--muted);margin-bottom:5px}
+.form-row input,.form-row textarea,.form-row select{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:7px;padding:9px 12px;
+  font-family:'Vazirmatn',sans-serif;font-size:.82rem;color:var(--text);
+  outline:none;transition:border-color .18s;direction:rtl;
+}
+.form-row input:focus,.form-row textarea:focus,.form-row select:focus{border-color:var(--accent)}
+.form-row textarea{resize:vertical;min-height:60px}
+.form-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.status-toggle{display:flex;gap:8px}
+.st-btn{
+  flex:1;padding:9px;border-radius:7px;border:1.5px solid var(--border);
+  background:transparent;font-family:'Vazirmatn',sans-serif;font-size:.78rem;
+  cursor:pointer;transition:all .18s;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.st-btn.sel-alive{background:var(--alive-bg);border-color:var(--alive);color:var(--alive);font-weight:600}
+.st-btn.sel-dead{background:var(--dead-bg);border-color:var(--dead);color:var(--dead);font-weight:600}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.hint-text{font-size:.7rem;color:var(--muted);margin-top:4px}
+.datalist-wrap{position:relative}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);
+  background:var(--text);color:#fff;padding:10px 20px;border-radius:8px;
+  font-size:.8rem;z-index:999;opacity:0;transition:all .25s;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── TELEGRAM FAB ── */
+.tg-fab{
+  position:fixed;bottom:64px;left:18px;z-index:600;
+  width:52px;height:52px;border-radius:50%;
+  background:#27a7e7;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;text-decoration:none;
+  box-shadow:0 4px 16px rgba(39,167,231,.4);
+  transition:transform .2s, box-shadow .2s;
+}
+.tg-fab:hover{transform:scale(1.08);box-shadow:0 6px 22px rgba(39,167,231,.55)}
+.tg-tooltip{
+  position:absolute;bottom:62px;left:0;
+  background:var(--text);color:#fff;
+  font-size:.72rem;padding:7px 12px;border-radius:7px;
+  white-space:nowrap;opacity:0;pointer-events:none;
+  transition:opacity .18s;direction:rtl;
+}
+.tg-fab:hover .tg-tooltip, .tg-fab:active .tg-tooltip, .tg-fab.show-tip .tg-tooltip{opacity:1}
+
+/* ── FOOTER ── */
+.app-footer{
+  position:fixed;bottom:0;left:0;right:0;z-index:80;
+  background:var(--surface);border-top:1px solid var(--border);
+  padding:7px 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:.7rem;color:var(--muted);
+}
+.app-footer a{color:var(--accent);text-decoration:none}
+.app-footer a:hover{text-decoration:underline}
+
+/* ── LOCK SCREEN ── */
+.lock-screen{
+  position:fixed;inset:0;z-index:400;
+  background:rgba(30,28,25,.45);
+  display:none;align-items:center;justify-content:center;
+}
+.lock-screen.open{display:flex;}
+.lock-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:36px 32px;width:min(360px,90vw);
+  text-align:center;box-shadow:var(--shadow-lg);
+}
+.lock-icon{font-size:2.2rem;margin-bottom:12px}
+.lock-box h2{font-size:1rem;font-weight:600;margin-bottom:4px}
+.lock-box p{font-size:.78rem;color:var(--muted);margin-bottom:24px}
+.lock-input-wrap{position:relative;margin-bottom:12px}
+.lock-input-wrap input{
+  width:100%;background:var(--bg);border:1.5px solid var(--border);
+  border-radius:8px;padding:11px 40px 11px 14px;
+  font-family:'Vazirmatn',sans-serif;font-size:.9rem;
+  color:var(--text);outline:none;transition:border-color .18s;
+  letter-spacing:.1em;text-align:center;direction:ltr;
+}
+.lock-input-wrap input:focus{border-color:var(--accent)}
+.lock-input-wrap input.err{border-color:var(--dead);animation:shake .3s}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.lock-toggle{
+  position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;color:var(--muted);font-size:.9rem;
+}
+.remember-row{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  margin-bottom:16px;font-size:.75rem;color:var(--muted);cursor:pointer;
+}
+.remember-row input{cursor:pointer;accent-color:var(--accent)}
+.lock-err{font-size:.73rem;color:var(--dead);min-height:18px;margin-bottom:10px}
+
+/* lock indicator in topbar */
+.lock-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:6px;font-size:.75rem;
+  font-family:'Vazirmatn',sans-serif;cursor:pointer;
+  border:1px solid var(--border);background:transparent;
+  color:var(--muted);transition:all .18s;
+}
+.lock-badge:hover{border-color:var(--accent);color:var(--accent)}
+.lock-badge.unlocked{color:var(--alive);border-color:rgba(61,122,86,.3);background:var(--alive-bg)}
+
+/* change-password modal */
+.chpw-section{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+
+/* sync status */
+.sync-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 11px;border-radius:6px;font-size:.75rem;
+  font-family:'Vazirmatn',sans-serif;cursor:pointer;
+  border:1px solid var(--border);background:transparent;
+  color:var(--muted);transition:all .18s;
+}
+.sync-badge:hover{border-color:var(--accent);color:var(--accent)}
+.sync-badge.connected{color:var(--alive);border-color:rgba(61,122,86,.3);background:var(--alive-bg)}
+.sync-badge.syncing{color:#b8860b;border-color:rgba(184,134,11,.3);background:#fdf6e3}
+.sync-badge.error{color:var(--dead);border-color:rgba(155,68,68,.3);background:var(--dead-bg)}
+.spin{display:inline-block;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── HAMBURGER MENU (mobile only) ── */
+.ham-btn{
+  display:none;
+  background:none;border:1px solid var(--border);border-radius:6px;
+  padding:6px 9px;cursor:pointer;color:var(--text);font-size:1.1rem;
+  transition:all .18s;
+}
+.ham-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+.mob-menu{
+  display:none;
+  position:fixed;top:52px;right:0;left:0;z-index:190;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:10px 16px;
+  flex-direction:column;gap:8px;
+  box-shadow:0 4px 16px rgba(0,0,0,.08);
+}
+.mob-menu.open{display:flex;}
+.mob-menu .btn, .mob-menu .lock-badge, .mob-menu .sync-badge{
+  width:100%;justify-content:center;text-align:center;
+}
+
+@media(max-width:640px){
+  .ham-btn{display:flex;align-items:center;}
+  /* مخفی کردن دکمه‌ها در topbar روی موبایل */
+  .topbar-right{display:none !important;}
+  /* سرچ وسط بمونه و کوچک‌تر */
+  .topbar-search{max-width:180px;}
+  .search-input{width:100% !important;}
+  /* canvas کمی پایین‌تر وقتی منو بازه */
+  .canvas-wrap.menu-open{top:calc(52px + var(--mob-menu-h, 0px));}
+}
+@media(min-width:641px){
+  .ham-btn{display:none !important;}
+  .mob-menu{display:none !important;}
+}
+
+/* search highlight */
+.node.search-match .node-inner{
+  background:#e3f2fd !important;
+  border-color:#64b5f6 !important;
+  box-shadow:0 0 0 3px rgba(100,181,246,.35), var(--shadow-lg) !important;
+}
+.node.search-dim{ opacity:.35; }
+
+/* search box */
+.search-wrap{position:relative;display:flex;align-items:center}
+.search-input{
+  background:var(--bg);border:1px solid var(--border);border-radius:7px;
+  padding:7px 32px 7px 12px;font-family:'Vazirmatn',sans-serif;font-size:.78rem;
+  color:var(--text);outline:none;transition:border-color .18s;width:100%;direction:rtl;
+}
+.search-input:focus{border-color:var(--accent);}
+.search-icon{position:absolute;left:9px;font-size:.8rem;color:var(--muted);pointer-events:none}
+.search-clear{
+  position:absolute;left:6px;background:none;border:none;cursor:pointer;
+  color:var(--muted);font-size:.85rem;padding:2px;display:none;
+}
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-box">
+    <div class="lock-icon">🔒</div>
+    <h2>شجره‌نامه  میرربیعی </h2>
+    <p>برای ورود رمز عبور را وارد کنید</p>
+    <div class="lock-input-wrap">
+      <input type="password" id="lockInput" placeholder="رمز عبور" maxlength="32">
+      <button class="lock-toggle" id="lockToggleVis" tabindex="-1">👁</button>
+    </div>
+    <div class="lock-err" id="lockErr"></div>
+    <label class="remember-row">
+      <input type="checkbox" id="rememberMe"> مرا به خاطر بسپار (۳۰ روز)
+    </label>
+      <button
+    class="btn btn-primary"
+    style="width:100%;display:flex;justify-content:center;align-items:center;"
+    id="btnUnlock">
+    ورود
+    </button>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <span class="topbar-title">🌿 شجره‌نامه میرربیعی </span>
+  <div class="search-wrap topbar-search">
+    <input type="text" class="search-input" id="searchInput" placeholder="جستجو..." autocomplete="off">
+    <button class="search-clear" id="searchClear">✕</button>
+  </div>
+  <div class="topbar-right">
+    <span class="sync-badge" id="btnSyncBadge">☁️ ...</span>
+    <button class="btn btn-outline btn-sm" id="btnToggleList">افراد (<span id="countBadge">0</span>)</button>
+    <button class="btn btn-primary btn-sm" id="btnAdd" style="display:none">+ افزودن فرد</button>
+    <button class="lock-badge" id="btnLockBadge">🔒 قفل</button>
+  </div>
+  <button class="ham-btn" id="hamBtn" aria-label="منو">☰</button>
+</div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div class="overlay" id="chpwOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>تغییر رمز عبور</h2>
+      <button class="modal-close" id="btnCloseChpw">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>رمز فعلی</label>
+        <input type="password" id="chpwCurrent" placeholder="رمز فعلی...">
+      </div>
+      <div class="form-row">
+        <label>رمز جدید</label>
+        <input type="password" id="chpwNew" placeholder="رمز جدید...">
+      </div>
+      <div class="form-row">
+        <label>تکرار رمز جدید</label>
+        <input type="password" id="chpwConfirm" placeholder="تکرار رمز جدید...">
+      </div>
+      <div class="lock-err" id="chpwErr"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btnCancelChpw">انصراف</button>
+      <button class="btn btn-primary" id="btnSaveChpw">تغییر رمز</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CANVAS -->
+<!-- MOBILE MENU -->
+<div class="mob-menu" id="mobMenu">
+  <span class="sync-badge" id="btnSyncBadgeMob">☁️ ...</span>
+  <button class="btn btn-primary btn-sm" id="btnAddMob" style="display:none">+ افزودن فرد</button>
+  <button class="btn btn-outline btn-sm" id="btnToggleListMob">افراد (<span id="countBadgeMob">0</span>)</button>
+  <button class="lock-badge" id="btnLockBadgeMob">🔒 ویرایش</button>
+</div>
+
+<div class="canvas-wrap" id="canvasWrap">
+  <div id="treeCanvas">
+    <svg id="connSvg"></svg>
+    <div class="empty-state" id="emptyState">
+      <div class="es-icon">🌱</div>
+      <strong>شجره‌نامه خالیه</strong>
+      <p>با دکمه «افزودن فرد» شروع کن</p>
+    </div>
+  </div>
+</div>
+
+<!-- SIDE PANEL -->
+<div class="side-panel" id="sidePanel">
+  <div class="side-header">
+    <h3>لیست افراد</h3>
+    <button class="btn-icon" id="btnClosePanel">✕</button>
+  </div>
+  <div class="side-list" id="sideList">
+    <div class="side-empty">هنوز کسی اضافه نشده</div>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">افزودن فرد</h2>
+      <button class="modal-close" id="btnCloseModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label>نام و نام‌خانوادگی *</label>
+        <input type="text" id="fName" placeholder="مثلاً علی احمدی" autocomplete="off">
+      </div>
+      <div class="form-2col">
+        <div class="form-row">
+          <label>نام پدر</label>
+          <div class="datalist-wrap">
+            <input type="text" id="fFather" list="fatherList" placeholder="نام پدر..." autocomplete="off">
+            <datalist id="fatherList"></datalist>
+          </div>
+          <div class="hint-text">اگر در لیست هست انتخاب کن</div>
+        </div>
+        <div class="form-row">
+          <label>نام مادر</label>
+          <div class="datalist-wrap">
+            <input type="text" id="fMother" list="motherList" placeholder="نام مادر..." autocomplete="off">
+            <datalist id="motherList"></datalist>
+          </div>
+          <div class="hint-text">اگر در لیست هست انتخاب کن</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>نام همسر (اختیاری)</label>
+        <div class="datalist-wrap">
+          <input type="text" id="fSpouse" list="spouseList" placeholder="نام همسر..." autocomplete="off">
+          <datalist id="spouseList"></datalist>
+        </div>
+        <div class="hint-text">برای اینکه همسرها در یک ردیف نمایش داده شوند و خط ارتباط درست رسم شود</div>
+      </div>
+      <div class="form-row">
+        <label>وضعیت</label>
+        <div class="status-toggle">
+          <button class="st-btn sel-alive" id="stAlive" onclick="setStatus('alive')">🟢 زنده</button>
+          <button class="st-btn" id="stDead" onclick="setStatus('dead')">🔴 فوت شده</button>
+        </div>
+      </div>
+      <div class="form-2col">
+        <div class="form-row">
+          <label>سال تولد</label>
+          <input type="text" id="fBirth" placeholder="مثلاً ۱۳۵۰">
+        </div>
+        <div class="form-row">
+          <label>سال فوت</label>
+          <input type="text" id="fDeath" placeholder="در صورت فوت" id="fDeath">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>توضیحات</label>
+        <textarea id="fNote" placeholder="شغل، خاطرات یا هر نکته‌ای..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="btnCancelModal">انصراف</button>
+      <button class="btn btn-primary" id="btnSavePerson">ذخیره</button>
+    </div>
+  </div>
+</div>
+
+<!-- TELEGRAM FAB -->
+<a class="tg-fab" id="tgFab" href="https://t.me/+KyXgL909pEk3ZmY0" target="_blank" rel="noopener">
+  <span class="tg-tooltip">برای ارتباط با ما عضو شوید</span>
+  <svg width="26" height="26" viewBox="0 0 240 240" fill="none">
+    <circle cx="120" cy="120" r="120" fill="#27A7E7"/>
+    <path d="M180.5 72.5L159.8 172.6c-1.6 7-5.8 8.7-11.7 5.4l-32.3-23.8-15.6 15c-1.7 1.7-3.2 3.2-6.4 3.2l2.3-32.6 59.4-53.6c2.6-2.3-.6-3.6-4-1.3l-73.4 46.2-31.6-9.9c-6.9-2.1-7-7 1.5-10.4l123.5-47.6c5.7-2.1 10.7 1.4 8.8 11.3z" fill="#fff"/>
+  </svg>
+</a>
+
+<!-- FOOTER -->
+<footer class="app-footer">
+  <span id="lastUpdateLabel"></span>
+  <span>© <a href="https://www.karimzadeh.ir" target="_blank" rel="noopener">فرهاد کریم‌زاده</a> — www.karimzadeh.ir</span>
+</footer>
+
+<!-- TOOLTIP -->
+<div class="tooltip" id="tooltip"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════════════
+   KEYS & DEFAULTS
+════════════════════════════════════════════════ */
+const LS_PEOPLE  = 'ftree_people_v2';
+const LS_PW_HASH = 'ftree_pw_v2';
+const LS_SESSION = 'ftree_session_v2';
+const DEFAULT_PW = 'family1234';
+const syncUrl = 'https://script.google.com/macros/s/AKfycbyNTS4MV3q0UnUbZoWt1cPs3v8xj6xvuH8zihDi9GvTmZsRbkB58Mb_MSNghw463eXPLA/exec';
+let pendingPassword = localStorage.getItem('ftree_pw_session') || null;
+
+/* ════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════ */
+let people     = [];
+let editId     = null;
+let curStatus  = 'alive';
+let isUnlocked = false;
+let _uidCtr    = 1;
+
+/* ════════════════════════════════════════════════
+   UTILS
+════════════════════════════════════════════════ */
+function uid(){ return 'p_' + Date.now() + '_' + (++_uidCtr); }
+function hashStr(s){
+  let h=5381; for(let i=0;i<s.length;i++) h=((h<<5)+h)+s.charCodeAt(i);
+  return (h>>>0).toString(36);
+}
+function nameById(id){ return id?(people.find(p=>p.id===id)?.name||null):null; }
+function idByName(name){
+  if(!name) return null;
+  const n=name.trim().toLowerCase();
+  return people.find(p=>p.name.trim().toLowerCase()===n)?.id||null;
+}
+const toastEl=document.getElementById('toast');
+function showToast(msg,dur=2200){
+  toastEl.textContent=msg; toastEl.classList.add('show');
+  setTimeout(()=>toastEl.classList.remove('show'),dur);
+}
+
+/* ════════════════════════════════════════════════
+   LOCAL STORAGE
+════════════════════════════════════════════════ */
+/* ── تاریخ شمسی (Jalali) ── */
+function toJalali(gy,gm,gd){
+  let g_d_m=[0,31,59,90,120,151,181,212,243,273,304,334];
+  let jy=(gy<=1600)?0:979; gy-=(gy<=1600)?621:1600;
+  let gy2=(gm>2)?(gy+1):gy;
+  let days=(365*gy)+(Math.floor((gy2+3)/4))-(Math.floor((gy2+99)/100))+(Math.floor((gy2+399)/400))-80+gd+g_d_m[gm-1];
+  jy+=33*Math.floor(days/12053); days%=12053;
+  jy+=4*Math.floor(days/1461); days%=1461;
+  if(days>365){ jy+=Math.floor((days-1)/365); days=(days-1)%365; }
+  let jm=(days<186)?1+Math.floor(days/31):7+Math.floor((days-186)/30);
+  let jd=1+((days<186)?(days%31):((days-186)%30));
+  return [jy,jm,jd];
+}
+const JMONTHS=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+function jalaliNowString(){
+  const now=new Date();
+  const [jy,jm,jd]=toJalali(now.getFullYear(),now.getMonth()+1,now.getDate());
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mm=String(now.getMinutes()).padStart(2,'0');
+  return `${jd} ${JMONTHS[jm-1]} ${jy} — ${hh}:${mm}`;
+}
+function updateLastUpdateLabel(ts){
+  const el=document.getElementById('lastUpdateLabel');
+  if(!el) return;
+  if(ts){
+    const d=new Date(ts);
+    const [jy,jm,jd]=toJalali(d.getFullYear(),d.getMonth()+1,d.getDate());
+    const hh=String(d.getHours()).padStart(2,'0');
+    const mm=String(d.getMinutes()).padStart(2,'0');
+    el.textContent=`آخرین به‌روزرسانی: ${jd} ${JMONTHS[jm-1]} ${jy} — ${hh}:${mm}`;
+  } else {
+    el.textContent='آخرین به‌روزرسانی: —';
+  }
+}
+
+function savePeople(sync=true){
+  try{
+    localStorage.setItem(LS_PEOPLE,JSON.stringify(people));
+    const ts=Date.now();
+    localStorage.setItem('ftree_last_update',String(ts));
+    updateLastUpdateLabel(ts);
+  }catch(e){}
+  if(sync && syncUrl){
+    if(!pendingPassword){
+      const pw = prompt('برای ذخیره در دیتابیس، رمز عبور را وارد کن:');
+      if(pw){ pendingPassword = pw; localStorage.setItem('ftree_pw_session', pw); }
+    }
+    if(pendingPassword){
+      syncSaveToSheet().then(ok=>{
+        if(ok) showToast('در دیتابیس ذخیره شد ✓');
+        else { showToast('⚠️ ذخیره در دیتابیس ناموفق بود (رمز اشتباه؟)'); pendingPassword=null; }
+      });
+    } else {
+      showToast('⚠️ فقط محلی ذخیره شد (بدون ارسال به شیت)');
+    }
+  }
+}
+function loadPeople(){
+  try{ const r=localStorage.getItem(LS_PEOPLE); if(r){ const p=JSON.parse(r); if(Array.isArray(p)) people=p; } }catch(e){ people=[]; }
+}
+/* ════════════════════════════════════════════════
+   GOOGLE SHEET SYNC
+════════════════════════════════════════════════ */
+function setSyncBadge(state, label){
+  const b=document.getElementById('btnSyncBadge');
+  b.classList.remove('connected','syncing','error');
+  if(state==='connected'){ b.classList.add('connected'); b.innerHTML='☁️ '+(label||'متصل'); }
+  else if(state==='syncing'){ b.classList.add('syncing'); b.innerHTML='<span class="spin">⏳</span> '+(label||'در حال همگام‌سازی...'); }
+  else if(state==='error'){ b.classList.add('error'); b.innerHTML='⚠️ '+(label||'خطا در اتصال'); }
+  else { b.innerHTML='☁️ '+(label||'آفلاین'); }
+}
+
+async function sheetGet(action, params={}){
+  if(!syncUrl) return null;
+  const q = new URLSearchParams({action, ...params});
+  const res = await fetch(syncUrl + '?' + q.toString());
+  return await res.json();
+}
+async function sheetPost(payload){
+  if(!syncUrl) return null;
+  try {
+    const res = await fetch(syncUrl, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(payload)
+    });
+    return await res.json();
+  } catch(e) {
+    const res2 = await fetch(syncUrl + '?payload=' + encodeURIComponent(JSON.stringify(payload)));
+    return await res2.json();
+  }
+}
+
+/* بارگذاری اولیه از شیت (در صورت اتصال) */
+async function syncLoadFromSheet(silent=false){
+  if(!syncUrl) return false;
+  setSyncBadge('syncing','دریافت اطلاعات...');
+  try{
+    const data = await sheetGet('load');
+    if(data && data.ok){
+      people = data.people || [];
+      resolveLinks();
+      savePeople(false); // ذخیره محلی بدون ارسال دوباره به سرور
+      if(data.lastUpdate) { localStorage.setItem('ftree_last_update', String(data.lastUpdate)); updateLastUpdateLabel(data.lastUpdate); }
+      setSyncBadge('connected','متصل');
+      renderAll();
+      if(!silent) showToast('داده‌ها از دیتابیس دریافت شد ✓');
+      return true;
+    } else {
+      setSyncBadge('error','خطا');
+      if(!silent) showToast('خطا در دریافت از دیتابیس');
+      return false;
+    }
+  }catch(e){
+    setSyncBadge('error','عدم دسترسی');
+    if(!silent) showToast('اتصال به دیتابیس برقرار نشد');
+    return false;
+  }
+}
+
+/* ارسال داده فعلی به شیت (نیاز به پسورد) */
+async function syncSaveToSheet(){
+  if(!syncUrl) return false;
+  if(!pendingPassword){
+    showToast('برای ارسال به دیتابیس، یک‌بار با رمز وارد شو');
+    return false;
+  }
+  setSyncBadge('syncing','ارسال اطلاعات...');
+  try{
+    const data = await sheetPost({ action:'save', password: pendingPassword, people });
+    if(data && data.ok){
+      if(data.lastUpdate){ localStorage.setItem('ftree_last_update', String(data.lastUpdate)); updateLastUpdateLabel(data.lastUpdate); }
+      setSyncBadge('connected','متصل');
+      return true;
+    } else {
+      setSyncBadge('error','خطا');
+      showToast('رمز اشتباه یا خطا در ارسال');
+      return false;
+    }
+  }catch(e){
+    setSyncBadge('error','عدم دسترسی');
+    return false;
+  }
+}
+
+function getStoredHash(){ return localStorage.getItem(LS_PW_HASH)||hashStr(DEFAULT_PW); }
+function setStoredHash(h){ localStorage.setItem(LS_PW_HASH,h); }
+function getSession(){ try{return JSON.parse(localStorage.getItem(LS_SESSION));}catch(e){return null;} }
+function setSession(remember){ localStorage.setItem(LS_SESSION,JSON.stringify({ts:Date.now(),expiry:remember?Date.now()+30*24*3600*1000:-1})); }
+function clearSession(){ localStorage.removeItem(LS_SESSION); }
+function isSessionValid(){ const s=getSession(); if(!s)return false; if(s.expiry===-1)return false; return Date.now()<s.expiry; }
+
+/* ════════════════════════════════════════════════
+   AUTH
+════════════════════════════════════════════════ */
+function setUnlocked(state,remember){
+  isUnlocked=state;
+  document.getElementById('btnAdd').style.display=state?'':'none';
+  const b=document.getElementById('btnLockBadge');
+  if(state){ b.innerHTML='🔓 ویرایش فعال'; b.classList.add('unlocked'); }
+  else { b.innerHTML='🔒 ویرایش'; b.classList.remove('unlocked'); }
+  if(!state){ document.getElementById('overlay').classList.remove('open'); document.getElementById('chpwOverlay').classList.remove('open'); clearSession(); }
+  else if(remember!==undefined) setSession(remember);
+}
+function openLockModal(){
+  document.getElementById('lockInput').value=''; document.getElementById('lockErr').textContent='';
+  document.getElementById('lockScreen').classList.add('open');
+  setTimeout(()=>document.getElementById('lockInput').focus(),100);
+}
+function closeLockModal(){ document.getElementById('lockScreen').classList.remove('open'); }
+document.getElementById('btnUnlock').onclick=tryUnlock;
+document.getElementById('lockInput').onkeydown=e=>{ if(e.key==='Enter') tryUnlock(); };
+document.getElementById('lockScreen').onclick=e=>{ if(e.target===document.getElementById('lockScreen')) closeLockModal(); };
+async function tryUnlock(){
+  const val=document.getElementById('lockInput').value;
+  const remember=document.getElementById('rememberMe').checked;
+  const inp=document.getElementById('lockInput');
+  const errEl=document.getElementById('lockErr');
+
+  let valid=false;
+  if(syncUrl){
+    // بررسی پسورد از سرور (گوگل‌شیت)
+    errEl.textContent='در حال بررسی...';
+    try{
+      const data=await sheetPost({action:'login', password:val});
+      valid = !!(data && data.ok);
+    }catch(e){ valid=false; }
+  } else {
+    valid = hashStr(val)===getStoredHash();
+  }
+
+  if(valid){
+    pendingPassword = val;
+    localStorage.setItem('ftree_pw_session', val);
+    setStoredHash(hashStr(val)); // بک‌آپ محلی
+    errEl.textContent='';
+    closeLockModal(); setUnlocked(true,remember); showToast('وارد شدید ✓');
+  } else {
+    inp.classList.add('err'); errEl.textContent='رمز اشتباه است';
+    setTimeout(()=>inp.classList.remove('err'),400);
+  }
+}
+document.getElementById('lockToggleVis').onclick=()=>{ const inp=document.getElementById('lockInput'); inp.type=inp.type==='password'?'text':'password'; };
+document.getElementById('btnLockBadge').onclick=()=>{
+  if(!isUnlocked){ openLockModal(); return; }
+  const existing=document.getElementById('lockMenu'); if(existing){existing.remove();return;}
+  const menu=document.createElement('div'); menu.id='lockMenu';
+  menu.style.cssText='position:fixed;background:#fff;border:1px solid #e0dbd4;border-radius:9px;box-shadow:0 8px 32px rgba(0,0,0,.12);padding:6px;z-index:500;font-family:Vazirmatn,sans-serif;font-size:.8rem;min-width:170px;direction:rtl';
+  const rect=document.getElementById('btnLockBadge').getBoundingClientRect();
+  menu.style.top=(rect.bottom+6)+'px'; menu.style.left=rect.left+'px';
+  [{label:'🔒 قفل کردن ویرایش',fn:()=>setUnlocked(false)},{label:'🔑 تغییر رمز عبور',fn:openChpw}].forEach(it=>{
+    const btn=document.createElement('button'); btn.textContent=it.label;
+    btn.style.cssText='display:block;width:100%;text-align:right;padding:9px 12px;border:none;background:none;cursor:pointer;border-radius:6px;font-family:Vazirmatn,sans-serif;font-size:.8rem;';
+    btn.onmouseover=()=>btn.style.background='#f5f4f1'; btn.onmouseout=()=>btn.style.background='none';
+    btn.onclick=()=>{ menu.remove(); it.fn(); };
+    menu.appendChild(btn);
+  });
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener('click',()=>menu.remove(),{once:true}),50);
+};
+function openChpw(){
+  ['chpwCurrent','chpwNew','chpwConfirm'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('chpwErr').textContent='';
+  document.getElementById('chpwOverlay').classList.add('open');
+}
+function closeChpw(){ document.getElementById('chpwOverlay').classList.remove('open'); }
+document.getElementById('btnCloseChpw').onclick=closeChpw;
+document.getElementById('btnCancelChpw').onclick=closeChpw;
+document.getElementById('btnSaveChpw').onclick=async ()=>{
+  const cur=document.getElementById('chpwCurrent').value,nw=document.getElementById('chpwNew').value,cf=document.getElementById('chpwConfirm').value;
+  const err=document.getElementById('chpwErr');
+  if(nw.length<4){err.textContent='رمز جدید باید حداقل ۴ کاراکتر باشد';return;}
+  if(nw!==cf){err.textContent='رمز جدید و تکرارش یکسان نیستند';return;}
+
+  if(syncUrl){
+    err.textContent='در حال بررسی...';
+    try{
+      const data=await sheetPost({action:'changePassword', oldPassword:cur, newPassword:nw});
+      if(!data || !data.ok){ err.textContent='رمز فعلی اشتباه است یا خطایی رخ داد'; return; }
+    }catch(e){ err.textContent='اتصال به شیت برقرار نشد'; return; }
+  } else {
+    if(hashStr(cur)!==getStoredHash()){err.textContent='رمز فعلی اشتباه است';return;}
+  }
+
+  setStoredHash(hashStr(nw));
+  pendingPassword = nw;
+  localStorage.setItem('ftree_pw_session', nw);
+  clearSession(); closeChpw(); showToast('رمز عبور تغییر کرد ✓');
+};
+
+/* ════════════════════════════════════════════════
+   RESOLVE LINKS
+════════════════════════════════════════════════ */
+function resolveLinks(){
+  people.forEach(p=>{
+    if(!p.fatherId&&p.fatherName) p.fatherId=idByName(p.fatherName)||null;
+    if(!p.motherId&&p.motherName) p.motherId=idByName(p.motherName)||null;
+    if(!p.spouseId&&p.spouseName) p.spouseId=idByName(p.spouseName)||null;
+  });
+  people.forEach(parent=>{
+    people.forEach(child=>{
+      if(child.fatherName&&!child.fatherId&&child.fatherName.trim().toLowerCase()===parent.name.trim().toLowerCase()) child.fatherId=parent.id;
+      if(child.motherName&&!child.motherId&&child.motherName.trim().toLowerCase()===parent.name.trim().toLowerCase()) child.motherId=parent.id;
+    });
+  });
+  // ارتباط دوطرفه همسر: اگه الف همسرش ب باشه، ب هم باید همسرش الف باشه
+  people.forEach(p=>{
+    if(p.spouseId){
+      const sp=people.find(x=>x.id===p.spouseId);
+      if(sp&&!sp.spouseId){ sp.spouseId=p.id; sp.spouseName=p.name; }
+    }
+  });
+  people.forEach(p=>{
+    if(p.fatherId){const fn=nameById(p.fatherId);if(fn)p.fatherName=fn;}
+    if(p.motherId){const mn=nameById(p.motherId);if(mn)p.motherName=mn;}
+    if(p.spouseId){const sn=nameById(p.spouseId);if(sn)p.spouseName=sn;}
+  });
+}
+
+/* ════════════════════════════════════════════════
+   REQUIRE UNLOCK
+════════════════════════════════════════════════ */
+function requireUnlock(fn){ if(!isUnlocked){openLockModal();return;} fn(); }
+
+/* ════════════════════════════════════════════════
+   MODAL
+════════════════════════════════════════════════ */
+function refreshDatalist(){
+  ['fatherList','motherList','spouseList'].forEach(dlId=>{
+    const dl=document.getElementById(dlId); dl.innerHTML='';
+    people.forEach(p=>{ const o=document.createElement('option'); o.value=p.name; dl.appendChild(o); });
+  });
+}
+function openModal(id=null){
+  editId=id;
+  const person=id?people.find(p=>p.id===id):null;
+  document.getElementById('modalTitle').textContent=id?'ویرایش فرد':'افزودن فرد';
+  document.getElementById('fName').value=person?.name||'';
+  document.getElementById('fFather').value=person?(nameById(person.fatherId)||person.fatherName||''):'';
+  document.getElementById('fMother').value=person?(nameById(person.motherId)||person.motherName||''):'';
+  document.getElementById('fSpouse').value=person?(nameById(person.spouseId)||person.spouseName||''):'';
+  document.getElementById('fBirth').value=person?.birth||'';
+  document.getElementById('fDeath').value=person?.death||'';
+  document.getElementById('fNote').value=person?.note||'';
+  setStatus(person?.status||'alive');
+  refreshDatalist();
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('fName').focus();
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); editId=null; }
+function setStatus(s){
+  curStatus=s;
+  document.getElementById('stAlive').className='st-btn'+(s==='alive'?' sel-alive':'');
+  document.getElementById('stDead').className='st-btn'+(s==='dead'?' sel-dead':'');
+}
+document.getElementById('btnAdd').onclick=()=>requireUnlock(()=>openModal());
+document.getElementById('btnCloseModal').onclick=closeModal;
+document.getElementById('btnCancelModal').onclick=closeModal;
+document.getElementById('overlay').onclick=e=>{ if(e.target===document.getElementById('overlay')) closeModal(); };
+document.getElementById('btnSavePerson').onclick=()=>{
+  const name=document.getElementById('fName').value.trim();
+  if(!name){showToast('نام الزامی است');return;}
+  const fatherName=document.getElementById('fFather').value.trim();
+  const motherName=document.getElementById('fMother').value.trim();
+  const fatherId=idByName(fatherName);
+  const motherId=idByName(motherName);
+  const spouseName=document.getElementById('fSpouse').value.trim();
+  const spouseId=idByName(spouseName);
+  const birth=document.getElementById('fBirth').value.trim();
+  const death=document.getElementById('fDeath').value.trim();
+  const note=document.getElementById('fNote').value.trim();
+  if(editId){
+    const p=people.find(x=>x.id===editId);
+    Object.assign(p,{name,fatherId,motherId,fatherName,motherName,spouseId,spouseName,status:curStatus,birth,death,note});
+  } else {
+    people.push({id:uid(),name,fatherId,motherId,fatherName,motherName,spouseId,spouseName,status:curStatus,birth,death,note});
+  }
+  resolveLinks(); closeModal(); savePeople(); renderAll();
+  showToast(editId?'ویرایش شد ✓':'فرد اضافه شد ✓');
+};
+
+/* ════════════════════════════════════════════════
+   SIDE PANEL
+════════════════════════════════════════════════ */
+document.getElementById('btnToggleList').onclick=()=>document.getElementById('sidePanel').classList.toggle('open');
+document.getElementById('btnClosePanel').onclick=()=>document.getElementById('sidePanel').classList.remove('open');
+function renderSideList(){
+  const list=document.getElementById('sideList');
+  document.getElementById('countBadge').textContent=people.length;
+  const cntMob=document.getElementById('countBadgeMob');
+  if(cntMob) cntMob.textContent=people.length;
+  if(!people.length){list.innerHTML='<div class="side-empty">هنوز کسی اضافه نشده</div>';return;}
+  list.innerHTML='';
+  [...people].sort((a,b)=>a.name.localeCompare(b.name,'fa')).forEach(p=>{
+    const div=document.createElement('div'); div.className='side-item';
+    const dotColor=p.status==='alive'?'var(--alive)':p.status==='dead'?'var(--dead)':'var(--border)';
+    div.innerHTML=`<div class="side-item-dot" style="background:${dotColor}"></div>
+      <div class="side-item-info">
+        <div class="side-item-name">${p.name}</div>
+        <div class="side-item-sub">${p.birth?p.birth+' · ':''}${p.fatherName?'پدر: '+p.fatherName:''}</div>
+      </div>
+      <button class="side-item-del" title="حذف">×</button>`;
+    div.querySelector('.side-item-del').onclick=e=>{e.stopPropagation();requireUnlock(()=>deletePerson(p.id));};
+    div.onclick=()=>requireUnlock(()=>openModal(p.id));
+    list.appendChild(div);
+  });
+}
+function deletePerson(id){
+  if(!confirm('این فرد حذف شود؟')) return;
+  people=people.filter(p=>p.id!==id);
+  people.forEach(p=>{ if(p.fatherId===id)p.fatherId=null; if(p.motherId===id)p.motherId=null; });
+  savePeople(); renderAll(); showToast('حذف شد');
+}
+
+/* ════════════════════════════════════════════════
+   TREE LAYOUT — Proper hierarchical positioning
+   هر فرزند دقیقاً زیر والدش — فاصله بر اساس زیردرخت
+════════════════════════════════════════════════ */
+const NW=120, NH=56, CD=68, HGAP=20, VGAP=90;
+
+function buildTree(){
+  if(!people.length) return null;
+
+  /* ── 1. childrenOf map (برای چیدمان: هر فرد فقط زیر یک والد اصلی) ── */
+  const knownIdsEarly=new Set(people.map(p=>p.id));
+  const childrenOf={};       // برای چیدمان (هر فرد فقط یکبار)
+  const allParentsOf={};     // برای خط‌کشی (پدر و مادر هر دو)
+  people.forEach(p=>{ childrenOf[p.id]=[]; allParentsOf[p.id]=[]; });
+  people.forEach(p=>{
+    [p.fatherId,p.motherId].forEach(pid=>{
+      if(pid&&knownIdsEarly.has(pid)&&!allParentsOf[p.id].includes(pid)) allParentsOf[p.id].push(pid);
+    });
+    // والد اصلی برای چیدمان: پدر در صورت وجود، وگرنه مادر
+    const primary = (p.fatherId&&knownIdsEarly.has(p.fatherId)) ? p.fatherId
+                   : (p.motherId&&knownIdsEarly.has(p.motherId)) ? p.motherId
+                   : null;
+    if(primary&&childrenOf[primary]&&!childrenOf[primary].includes(p.id)) childrenOf[primary].push(p.id);
+  });
+
+  /* ── 2. نسل با BFS از ریشه‌ها ── */
+  const genOf={};
+  // ریشه = بدون والد شناخته‌شده در people
+  const knownIds=new Set(people.map(p=>p.id));
+  const roots=people.filter(p=>
+    (!p.fatherId||!knownIds.has(p.fatherId))&&
+    (!p.motherId||!knownIds.has(p.motherId))
+  );
+  const queue=[...roots];
+  roots.forEach(r=>genOf[r.id]=0);
+  // برای کسایی که والدشون ثبت نشده ولی اسمشون هست
+  people.forEach(p=>{ if(genOf[p.id]===undefined) genOf[p.id]=0; });
+
+  let safety=0;
+  let changed=true;
+  while(changed&&safety++<500){
+    changed=false;
+    people.forEach(p=>{
+      let maxParentGen=-1;
+      [p.fatherId,p.motherId].forEach(pid=>{
+        if(pid&&knownIds.has(pid)&&genOf[pid]!==undefined) maxParentGen=Math.max(maxParentGen,genOf[pid]);
+      });
+      if(maxParentGen>=0){
+        const want=maxParentGen+1;
+        if((genOf[p.id]||0)<want){ genOf[p.id]=want; changed=true; }
+      }
+      // همگام‌سازی نسل با همسر — هر دو در یک ردیف باشند
+      if(p.spouseId&&knownIds.has(p.spouseId)&&genOf[p.spouseId]!==undefined){
+        const target=Math.max(genOf[p.id]||0, genOf[p.spouseId]||0);
+        if((genOf[p.id]||0)<target){ genOf[p.id]=target; changed=true; }
+        if((genOf[p.spouseId]||0)<target){ genOf[p.spouseId]=target; changed=true; }
+      }
+    });
+  }
+
+  /* ── 3. گروه‌بندی نسل‌ها ── */
+  const gens={};
+  people.forEach(p=>{ const g=genOf[p.id]||0; (gens[g]=gens[g]||[]).push(p); });
+  const genKeys=Object.keys(gens).map(Number).sort((a,b)=>a-b);
+
+  /* ── 4. ترتیب فرزندان زیر والد با الگوریتم پست‌اوردر ── */
+  // برای هر نسل، فرزندان هر والد کنار هم باشند
+  genKeys.forEach(gk=>{
+    gens[gk].sort((a,b)=>{
+      // اگه هر دو فرزند یه والد مشترک هستند، کنار هم
+      const pa=a.fatherId||a.motherId||'_'+a.id;
+      const pb=b.fatherId||b.motherId||'_'+b.id;
+      if(pa===pb) return 0;
+      // ترتیب والدین بر اساس اینکه در ردیف بالاتر کجا هستند
+      const paIdx=gens[gk-1]?gens[gk-1].findIndex(x=>x.id===pa):-1;
+      const pbIdx=gens[gk-1]?gens[gk-1].findIndex(x=>x.id===pb):-1;
+      return paIdx-pbIdx;
+    });
+  });
+
+  /* ── 5. محاسبه عرض زیردرخت هر نود ── */
+  // subtreeWidth = حداکثر فضای مورد نیاز زیردرخت
+  const subtreeW={};
+  function calcSubtree(id,gi){
+    const isCircle=(gi%2===0);
+    const nodeW=isCircle?CD:NW;
+    const ch=childrenOf[id]||[];
+    if(!ch.length){ subtreeW[id]=nodeW; return nodeW; }
+    let total=ch.reduce((sum,cid)=>sum+calcSubtree(cid,gi+1)+HGAP,0)-HGAP;
+    subtreeW[id]=Math.max(nodeW,total);
+    return subtreeW[id];
+  }
+  // فقط ریشه‌ها رو حساب می‌کنیم (بقیه recursive)
+  const rootIds=roots.map(r=>r.id);
+  people.forEach(p=>{ if(subtreeW[p.id]===undefined) calcSubtree(p.id, genOf[p.id]||0); });
+
+  /* ── 6. تخصیص X به هر نود بر اساس زیردرخت ── */
+  const posX={};
+  const posY={};
+
+  // Y بر اساس نسل
+  people.forEach(p=>{
+    const gi=genOf[p.id]||0;
+    posY[p.id]=60+gi*(Math.max(NH,CD)+VGAP);
+  });
+
+  // X: شروع از چپ، هر ردیف centered زیر والدش
+  // ابتدا X ردیف اول (ریشه‌ها) رو حساب کن
+  function assignX(id,startX,gi){
+    const isCircle=(gi%2===0);
+    const nodeW=isCircle?CD:NW;
+    const ch=childrenOf[id]||[];
+    if(!ch.length){
+      posX[id]=startX;
+      return startX+nodeW;
+    }
+    // فرزندان رو از startX بچین
+    let curX=startX;
+    ch.forEach(cid=>{
+      curX=assignX(cid,curX,gi+1);
+      curX+=HGAP;
+    });
+    curX-=HGAP;
+    // این نود centered روی فرزندانش
+    const firstChild=childrenOf[id][0];
+    const lastChild=childrenOf[id][childrenOf[id].length-1];
+    if(posX[firstChild]!==undefined&&posX[lastChild]!==undefined){
+      const isCircleLast=(( genOf[lastChild]||0)%2===0);
+      const lastW=isCircleLast?CD:NW;
+      const childrenSpan=(posX[lastChild]+lastW/2)-(posX[firstChild]+nodeW/2);
+      // اما ما خودمون رو centered نمی‌ذاریم چون باید X والد ثابت باشه
+      // فقط centered می‌ذاریمش
+      const midChild=(posX[firstChild]+posX[lastChild]+lastW)/2;
+      posX[id]=midChild-nodeW/2;
+    } else {
+      posX[id]=startX;
+    }
+    return Math.max(curX+HGAP, posX[id]+nodeW);
+  }
+
+  // ریشه‌ها رو از چپ شروع کن
+  // ابتدا همه نودها رو یه X موقت بده
+  let cursorX=40;
+  // پیدا کردن ریشه‌های واقعی (که والد در سیستم ندارن)
+  const realRoots=people.filter(p=>
+    (!p.fatherId||!knownIds.has(p.fatherId))&&
+    (!p.motherId||!knownIds.has(p.motherId))
+  );
+  // مرتب‌سازی ریشه‌ها بر اساس ترتیب افزودن
+  realRoots.forEach(r=>{
+    const end=assignX(r.id,cursorX,genOf[r.id]||0);
+    cursorX=end+HGAP*2;
+  });
+  // هر نودی که X نگرفته
+  people.forEach(p=>{ if(posX[p.id]===undefined) posX[p.id]=cursorX+=((genOf[p.id]%2===0)?CD:NW)+HGAP; });
+
+  /* ── 7. ساخت posMap ── */
+  const posMap={};
+  people.forEach(p=>{
+    const gi=genOf[p.id]||0;
+    const isCircle=(gi%2===0);
+    const w=isCircle?CD:NW, h=isCircle?CD:NH;
+    const x=posX[p.id], y=posY[p.id];
+    posMap[p.id]={ x, y, cx:x+w/2, cy:y+h/2, w, h, isCircle, gi };
+  });
+
+  return { posMap, childrenOf, allParentsOf };
+}
+
+/* ════════════════════════════════════════════════
+   DRAW LINE helper
+════════════════════════════════════════════════ */
+function drawLine(svg,x1,y1,x2,y2,cls){
+  const el=document.createElementNS('http://www.w3.org/2000/svg','line');
+  el.setAttribute('x1',Math.round(x1)); el.setAttribute('y1',Math.round(y1));
+  el.setAttribute('x2',Math.round(x2)); el.setAttribute('y2',Math.round(y2));
+  el.setAttribute('class','conn-line'+(cls?' '+cls:''));
+  svg.appendChild(el);
+}
+
+/* ════════════════════════════════════════════════
+   RENDER ALL
+════════════════════════════════════════════════ */
+function renderAll(){
+  renderSideList();
+  const canvas=document.getElementById('treeCanvas');
+  canvas.querySelectorAll('.node').forEach(n=>n.remove());
+  const svg=document.getElementById('connSvg');
+  svg.innerHTML='';
+  document.getElementById('emptyState').style.display=people.length?'none':'';
+  if(!people.length) return;
+
+  const tree=buildTree();
+  if(!tree) return;
+  const {posMap,childrenOf,allParentsOf}=tree;
+  const knownIds_g=new Set(people.map(p=>p.id));
+
+  // canvas size
+  const allPos=Object.values(posMap);
+  const maxX=Math.max(...allPos.map(p=>p.x+p.w))+80;
+  const maxY=Math.max(...allPos.map(p=>p.y+p.h))+80;
+  const cW=Math.max(maxX,window.innerWidth);
+  const cH=Math.max(maxY,window.innerHeight-52);
+  canvas.style.width=cW+'px'; canvas.style.height=cH+'px';
+  svg.setAttribute('width',cW); svg.setAttribute('height',cH);
+
+  /* ── رسم خطوط T شکل: برای هر والد (پدر و مادر هر دو) ── */
+  // ساخت نقشه: هر والد → لیست فرزندانی که این والد را به‌عنوان پدر/مادر دارند
+  const drawChildrenOf={};
+  people.forEach(child=>{
+    (allParentsOf[child.id]||[]).forEach(pid=>{
+      if(!drawChildrenOf[pid]) drawChildrenOf[pid]=[];
+      drawChildrenOf[pid].push(child.id);
+    });
+  });
+
+  people.forEach(parent=>{
+    const pp=posMap[parent.id]; if(!pp) return;
+    const ch=drawChildrenOf[parent.id]||[];
+    // فقط فرزندانی که در posMap هستند
+    const kids=ch.map(cid=>posMap[cid]).filter(Boolean);
+    if(!kids.length) return;
+
+    // اگه این فرد "مادر/همسر" نقش داره (یعنی همسرش هم پدر همین بچه‌هاست)،
+    // خطی نکش — اسمش زیر نود همسرش نمایش داده می‌شه
+    const isMotherRole = ch.some(cid=>{
+      const c=people.find(x=>x.id===cid);
+      return c && c.motherId===parent.id && c.fatherId && knownIds_g.has(c.fatherId);
+    });
+    if(isMotherRole) return;
+
+    const px=pp.cx;
+    const py=pp.y+pp.h; // پایین والد
+    const lineCls = isMotherRole ? 'conn-line-mother' : '';
+
+    if(kids.length===1){
+      const kp=kids[0];
+      const kx=kp.cx, ky=kp.y;
+      // اگه مستقیم بالای هم: یه خط عمودی
+      if(Math.abs(kx-px)<2){
+        drawLine(svg,px,py,px,ky,lineCls);
+      } else {
+        const midY=py+(ky-py)*0.5;
+        drawLine(svg,px,py,px,midY,lineCls);
+        drawLine(svg,px,midY,kx,midY,lineCls);
+        drawLine(svg,kx,midY,kx,ky,lineCls);
+      }
+    } else {
+      // چند فرزند: T شکل
+      const minKx=Math.min(...kids.map(k=>k.cx));
+      const maxKx=Math.max(...kids.map(k=>k.cx));
+      const firstKy=kids[0].y;
+      // barY: بین والد و فرزندان
+      const barY=py+(firstKy-py)*0.5;
+      // عمودی از والد به barY
+      drawLine(svg,px,py,px,barY,lineCls);
+      // افقی از اولین تا آخرین فرزند
+      drawLine(svg,minKx,barY,maxKx,barY,lineCls);
+      // عمودی از barY به هر فرزند
+      kids.forEach(kp=>{ drawLine(svg,kp.cx,barY,kp.cx,kp.y,lineCls); });
+    }
+  });
+
+  /* ── رسم نودها ── */
+  people.forEach(p=>{
+    const pos=posMap[p.id]; if(!pos) return;
+    const sc=p.status==='alive'?'node-alive':p.status==='dead'?'node-dead':'node-unknown';
+    const node=document.createElement('div');
+    node.className=`node ${pos.isCircle?'shape-circle':'shape-rect'} ${sc}`;
+    node.dataset.id=p.id;
+    node.dataset.name=p.name;
+    node.style.cssText=`left:${pos.x}px;top:${pos.y}px;width:${pos.w}px;height:${pos.h}px`;
+    node.innerHTML=`<div class="node-inner" style="width:100%;height:100%">
+      <div class="node-name">${shortName(p.name)}</div>
+      ${p.birth?`<div class="node-sub">${p.birth}</div>`:''}
+      ${p.spouseName?`<div class="node-spouse">💍 ${shortName(p.spouseName)}</div>`:''}
+    </div>`;
+    node.addEventListener('mouseenter',e=>showTT(e,p));
+    node.addEventListener('mousemove',moveTT);
+    node.addEventListener('mouseleave',hideTT);
+    node.addEventListener('dblclick',()=>requireUnlock(()=>openModal(p.id)));
+    canvas.appendChild(node);
+  });
+
+  applySearch();
+}
+
+function shortName(name){
+  const parts=name.trim().split(/\s+/);
+  return parts.length<=2?name:parts[0]+' '+parts[parts.length-1];
+}
+
+/* ════════════════════════════════════════════════
+   TOOLTIP
+════════════════════════════════════════════════ */
+const ttEl=document.getElementById('tooltip');
+function showTT(e,p){
+  const sl=p.status==='alive'?'زنده':p.status==='dead'?'فوت شده':'نامشخص';
+  const sc=p.status==='alive'?'tt-alive':p.status==='dead'?'tt-dead':'';
+  ttEl.innerHTML=`<div class="tt-name">${p.name}</div>
+    <span class="tt-status ${sc}">${sl}</span>
+    ${p.birth?`<div class="tt-row"><span class="tt-label">تولد:</span>${p.birth}</div>`:''}
+    ${p.death?`<div class="tt-row"><span class="tt-label">فوت:</span>${p.death}</div>`:''}
+    ${nameById(p.fatherId)||p.fatherName?`<div class="tt-row"><span class="tt-label">پدر:</span>${nameById(p.fatherId)||p.fatherName}</div>`:''}
+    ${nameById(p.motherId)||p.motherName?`<div class="tt-row"><span class="tt-label">مادر:</span>${nameById(p.motherId)||p.motherName}</div>`:''}
+    ${nameById(p.spouseId)||p.spouseName?`<div class="tt-row"><span class="tt-label">همسر:</span>${nameById(p.spouseId)||p.spouseName}</div>`:''}
+    ${p.note?`<div style="margin-top:6px;color:rgba(255,255,255,.75);font-size:.72rem">${p.note}</div>`:''}`;
+  ttEl.classList.add('show'); moveTT(e);
+}
+function moveTT(e){
+  const x=e.clientX+14,y=e.clientY+14;
+  ttEl.style.left=(x+220>window.innerWidth?x-230:x)+'px';
+  ttEl.style.top=(y+180>window.innerHeight?y-190:y)+'px';
+}
+function hideTT(){ ttEl.classList.remove('show'); }
+
+/* ════════════════════════════════════════════════
+   SEARCH HIGHLIGHT
+════════════════════════════════════════════════ */
+function applySearch(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const clearBtn = document.getElementById('searchClear');
+  clearBtn.style.display = q ? 'block' : 'none';
+
+  const nodes = document.querySelectorAll('#treeCanvas .node');
+  if(!q){
+    nodes.forEach(n=>{ n.classList.remove('search-match','search-dim'); });
+    return;
+  }
+  nodes.forEach(n=>{
+    const name = (n.dataset.name||'').toLowerCase();
+    if(name.includes(q)){
+      n.classList.add('search-match');
+      n.classList.remove('search-dim');
+    } else {
+      n.classList.remove('search-match');
+      n.classList.add('search-dim');
+    }
+  });
+}
+document.getElementById('searchInput').addEventListener('input', ()=>{
+  applySearch();
+  setTimeout(()=>{
+    const first = document.querySelector('#treeCanvas .node.search-match');
+    if(first){
+      const wrap = document.getElementById('canvasWrap');
+      const nr = first.getBoundingClientRect();
+      const wr = wrap.getBoundingClientRect();
+      wrap.scrollTo({
+        left: wrap.scrollLeft + nr.left - wr.left - wr.width/2 + nr.width/2,
+        top:  wrap.scrollTop  + nr.top  - wr.top  - wr.height/2 + nr.height/2,
+        behavior: 'smooth'
+      });
+    }
+  }, 50);
+});
+document.getElementById('searchClear').addEventListener('click', ()=>{
+  document.getElementById('searchInput').value='';
+  applySearch();
+});
+
+/* ── HAMBURGER MENU JS ── */
+(function(){
+  const hamBtn   = document.getElementById('hamBtn');
+  const mobMenu  = document.getElementById('mobMenu');
+
+  // باز/بسته کردن منو
+  hamBtn.addEventListener('click', ()=>{
+    mobMenu.classList.toggle('open');
+  });
+  // بستن با کلیک بیرون
+  document.addEventListener('click', e=>{
+    if(!mobMenu.contains(e.target) && e.target!==hamBtn)
+      mobMenu.classList.remove('open');
+  });
+
+  // sync badge mob — same state as desktop
+  function syncMobState(){
+    const desk = document.getElementById('btnSyncBadge');
+    const mob  = document.getElementById('btnSyncBadgeMob');
+    if(mob && desk) mob.textContent = desk.textContent;
+
+    const addDesk = document.getElementById('btnAdd');
+    const addMob  = document.getElementById('btnAddMob');
+    if(addMob && addDesk) addMob.style.display = addDesk.style.display;
+
+    const cntDesk = document.getElementById('countBadge');
+    const cntMob  = document.getElementById('countBadgeMob');
+    if(cntMob && cntDesk) cntMob.textContent = cntDesk.textContent;
+
+    const lockDesk = document.getElementById('btnLockBadge');
+    const lockMob  = document.getElementById('btnLockBadgeMob');
+    if(lockMob && lockDesk){
+      lockMob.textContent = lockDesk.textContent;
+      lockMob.className = lockDesk.className;
+    }
+  }
+
+  // sync on mutation
+  const observer = new MutationObserver(syncMobState);
+  ['btnSyncBadge','btnAdd','countBadge','btnLockBadge'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) observer.observe(el, {childList:true, subtree:true, attributes:true, characterData:true});
+  });
+
+  // wire up mob buttons to their desktop counterparts
+  document.getElementById('btnAddMob').onclick = ()=>{
+    mobMenu.classList.remove('open');
+    document.getElementById('btnAdd').click();
+  };
+  document.getElementById('btnToggleListMob').onclick = ()=>{
+    mobMenu.classList.remove('open');
+    document.getElementById('btnToggleList').click();
+  };
+  document.getElementById('btnLockBadgeMob').onclick = ()=>{
+    mobMenu.classList.remove('open');
+    document.getElementById('btnLockBadge').click();
+  };
+  document.getElementById('btnSyncBadgeMob').onclick = ()=>{
+    mobMenu.classList.remove('open');
+    document.getElementById('btnSyncBadge').click();
+  };
+})();
+
+/* ── Telegram FAB touch tooltip ── */
+(function(){
+  const fab=document.getElementById('tgFab');
+  fab.addEventListener('touchstart',e=>{
+    if(!fab.classList.contains('show-tip')){
+      e.preventDefault();
+      fab.classList.add('show-tip');
+      setTimeout(()=>fab.classList.remove('show-tip'),1800);
+    }
+  });
+})();
+
+/* ════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════ */
+loadPeople();
+resolveLinks();
+if(isSessionValid()) setUnlocked(true);
+else setUnlocked(false);
+renderAll();
+updateLastUpdateLabel(localStorage.getItem('ftree_last_update'));
+
+if(syncUrl){
+  setSyncBadge('syncing','اتصال...');
+  syncLoadFromSheet(true);
+} else {
+  setSyncBadge('offline');
+}
+</script>
+</body>
+</html>
