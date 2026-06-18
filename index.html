@@ -1360,8 +1360,10 @@ function centerCanvasOnLoad(){
   if(!wrap || !canvas) return;
 
   // پیدا کردن نود علی‌رضا کریم‌زاده با اسم
-  const targetNode = [...canvas.querySelectorAll('.node')].find(n => (n.dataset.name||'').includes('علی‌رضا کریم‌زاده'));
-
+  const targetNode = [...canvas.querySelectorAll('.node')].find(n => {
+    const nm = (n.dataset.name||'').trim();
+    return nm === 'علی‌رضا کریم‌زاده' || nm === 'علی رضا کریم زاده';
+  });
   if(targetNode){
     const nodeLeft = parseFloat(targetNode.style.left) || 0;
     const nodeTop  = parseFloat(targetNode.style.top)  || 0;
