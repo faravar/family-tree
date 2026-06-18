@@ -1359,9 +1359,14 @@ function centerCanvasOnLoad(){
   const canvas = document.getElementById('treeCanvas');
   if(!wrap || !canvas) return;
   const cw = parseFloat(canvas.style.width) || canvas.scrollWidth;
-  wrap.scrollLeft = (cw - wrap.clientWidth) / 2;
-  wrap.scrollTop = 0;
+  const target = (cw - wrap.clientWidth) / 2;
+  // در RTL مقدار scrollLeft منفیه (یا برعکس)، هر دو حالت رو امتحان می‌کنیم
+  wrap.scrollLeft = target;
+  if(Math.abs(wrap.scrollLeft) < 10 && target > 10){
+    wrap.scrollLeft = -target;
   }
+  wrap.scrollTop = 0;
+}
 function shortName(name){
   const parts=name.trim().split(/\s+/);
   return parts.length<=2?name:parts[0]+' '+parts[parts.length-1];
