@@ -1363,7 +1363,7 @@ function centerCanvasOnLoad(){
   function normalize(s){
     return (s||'').replace(/[\u200c\s]+/g, '').trim();
   }
-  const targetNorm = normalize('نفس');
+  const targetNorm = normalize('فرهاد کریم‌زاده');
 
   const targetNode = [...canvas.querySelectorAll('.node')].find(n => {
     return normalize(n.dataset.name) === targetNorm;
