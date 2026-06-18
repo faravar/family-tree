@@ -1359,11 +1359,16 @@ function centerCanvasOnLoad(){
   const canvas = document.getElementById('treeCanvas');
   if(!wrap || !canvas) return;
 
-  // پیدا کردن نود علی‌رضا کریم‌زاده با اسم
+  // نرمال‌سازی: حذف نیم‌فاصله و فاصله‌های اضافه برای مقایسه دقیق
+  function normalize(s){
+    return (s||'').replace(/[\u200c\s]+/g, '').trim();
+  }
+  const targetNorm = normalize('علی‌رضا کریم‌زاده');
+
   const targetNode = [...canvas.querySelectorAll('.node')].find(n => {
-    const nm = (n.dataset.name||'').trim();
-    return nm === 'علی‌رضا کریم‌زاده' || nm === 'علی رضا کریم زاده';
+    return normalize(n.dataset.name) === targetNorm;
   });
+
   if(targetNode){
     const nodeLeft = parseFloat(targetNode.style.left) || 0;
     const nodeTop  = parseFloat(targetNode.style.top)  || 0;
@@ -1381,7 +1386,6 @@ function centerCanvasOnLoad(){
     }
     wrap.scrollTop = targetTop;
   } else {
-    // fallback: وسط کل canvas
     const cw = parseFloat(canvas.style.width) || canvas.scrollWidth;
     const target = (cw - wrap.clientWidth) / 2;
     wrap.scrollLeft = target;
