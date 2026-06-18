@@ -1358,14 +1358,34 @@ function centerCanvasOnLoad(){
   const wrap = document.getElementById('canvasWrap');
   const canvas = document.getElementById('treeCanvas');
   if(!wrap || !canvas) return;
-  const cw = parseFloat(canvas.style.width) || canvas.scrollWidth;
-  const target = (cw - wrap.clientWidth) / 2;
-  // در RTL مقدار scrollLeft منفیه (یا برعکس)، هر دو حالت رو امتحان می‌کنیم
-  wrap.scrollLeft = target;
-  if(Math.abs(wrap.scrollLeft) < 10 && target > 10){
-    wrap.scrollLeft = -target;
+
+  // پیدا کردن نود علی‌رضا کریم‌زاده با اسم
+  const targetNode = [...canvas.querySelectorAll('.node')].find(n => (n.dataset.name||'').includes('علی‌رضا کریم‌زاده') || (n.dataset.name||'').includes('علی رضا کریم زاده'));
+
+  if(targetNode){
+    const nodeLeft = parseFloat(targetNode.style.left) || 0;
+    const nodeTop  = parseFloat(targetNode.style.top)  || 0;
+    const nodeW    = targetNode.offsetWidth;
+    const nodeH    = targetNode.offsetHeight;
+    const nodeCenterX = nodeLeft + nodeW/2;
+    const nodeCenterY = nodeTop + nodeH/2;
+
+    let targetLeft = nodeCenterX - wrap.clientWidth/2;
+    const targetTop = Math.max(0, nodeCenterY - wrap.clientHeight/2);
+
+    wrap.scrollLeft = targetLeft;
+    if(Math.abs(wrap.scrollLeft - targetLeft) > 50){
+      wrap.scrollLeft = -targetLeft;
+    }
+    wrap.scrollTop = targetTop;
+  } else {
+    // fallback: وسط کل canvas
+    const cw = parseFloat(canvas.style.width) || canvas.scrollWidth;
+    const target = (cw - wrap.clientWidth) / 2;
+    wrap.scrollLeft = target;
+    if(Math.abs(wrap.scrollLeft) < 10 && target > 10) wrap.scrollLeft = -target;
+    wrap.scrollTop = 0;
   }
-  wrap.scrollTop = 0;
 }
 function shortName(name){
   const parts=name.trim().split(/\s+/);
